@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fútbol MANUGAMER</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #4CAF50; } /* Fondo verde */
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Ajustar tamaño del canvas
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Variables del juego
+        const playerSpeed = 6;
+        const ballSpeed = 4;
+        const ballRadius = 15;
+        const playerWidth = 50;
+        const playerHeight = 50;
+        const goalWidth = 60; // Porterías centradas más pequeñas
+        const goalHeight = 80; // Altura de la portería más reducida
+        const penaltyAreaWidth = 120; // Ancho del área de penalti
+        const penaltyAreaHeight = 240; // Alto del área de penalti
+        let ballX = canvas.width / 2;
+        let ballY = canvas.height / 2;
+        let ballDX = ballSpeed;
+        let ballDY = ballSpeed;
+        let playerX = canvas.width / 2 - playerWidth / 2;
+        let playerY = canvas.height - playerHeight - 100; // Mover al jugador más atrás
+        let aiX = canvas.width / 2 - playerWidth / 2;
+        let aiY = 50; // Mover a la IA más arriba
+        let keys = {};
+        let playerScore = 0;
+        let aiScore = 0;
+
+        // Movimiento del jugador
+        window.addEventListener('keydown', (e) => { keys[e.key] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+        // Movimiento táctil para móviles
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        window.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            let touchEndX = e.touches[0].clientX;
+            let touchEndY = e.touches[0].clientY;
+
+            let dx = touchEndX - touchStartX;
+            let dy = touchEndY - touchStartY;
+
+            // Actualizamos la posición del jugador basándonos en el movimiento táctil
+            playerX += dx * 0.05; // Ajuste de velocidad
+            playerY += dy * 0.05; // Ajuste de velocidad
+
+            touchStartX = touchEndX;
+            touchStartY = touchEndY;
+        });
+
+        // Movimiento con teclado (PC)
+        function movePlayer() {
+            if (keys['ArrowLeft'] && playerX > 0) playerX -= playerSpeed;
+            if (keys['ArrowRight'] && playerX < canvas.width - playerWidth) playerX += playerSpeed;
+            if (keys['ArrowUp'] && playerY > 0) playerY -= playerSpeed;
+            if (keys['ArrowDown'] && playerY < canvas.height - playerHeight) playerY += playerSpeed;
+        }
+
+        // Movimiento de la IA
+        function moveAI() {
+            if (aiX + playerWidth / 2 < ballX) aiX += 2;
+            if (aiX + playerWidth / 2 > ballX) aiX -= 2;
+            // Movimiento simple para hacer que el AI se mueva hacia la pelota
+        }
+
+        // Actualización de la bola con rebote en las paredes
+        function moveBall() {
+            ballX += ballDX;
+            ballY += ballDY;
+
+            // Rebote en las paredes laterales
+            if (ballX - ballRadius <= 0 || ballX + ballRadius >= canvas.width) {
+                ballDX = -ballDX;
+            }
+            // Rebote en las paredes superior e inferior
+            if (ballY - ballRadius <= 0 || ballY + ballRadius >= canvas.height) {
+                ballDY = -ballDY;
+            }
+
+            // Rebote en el jugador
+            if (ballX + ballRadius > playerX && ballX - ballRadius < playerX + playerWidth &&
+                ballY + ballRadius > playerY && ballY - ballRadius < playerY + playerHeight) {
+                ballDY = -ballDY;  // Rebote vertical
+            }
+
+            // Rebote en el AI
+            if (ballX + ballRadius > aiX && ballX - ballRadius < aiX + playerWidth &&
+                ballY - ballRadius < aiY + playerHeight && ballY + ballRadius > aiY) {
+                ballDY = -ballDY;  // Rebote vertical
+            }
+
+            // Gol del jugador
+            if (ballY + ballRadius >= canvas.height - goalHeight && ballX >= (canvas.width / 2 - goalWidth / 2) && ballX <= (canvas.width / 2 + goalWidth / 2)) {
+                aiScore++;
+                resetBall();
+            }
+
+            // Gol del AI
+            if (ballY - ballRadius <= goalHeight && ballX >= (canvas.width / 2 - goalWidth / 2) && ballX <= (canvas.width / 2 + goalWidth / 2)) {
+                playerScore++;
+                resetBall();
+            }
+        }
+
+        // Restablecer la bola al centro
+        function resetBall() {
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+            ballDX = ballSpeed;
+            ballDY = ballSpeed;
+        }
+
+        // Dibuja el campo, jugador, bola, marcador y porterías
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Dibuja las líneas del campo
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 5;
+
+            // Línea de medio campo
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+
+            // Áreas de penalti
+            ctx.strokeRect(0, (canvas.height / 2) - penaltyAreaHeight / 2, penaltyAreaWidth, penaltyAreaHeight); // Izquierda
+            ctx.strokeRect(canvas.width - penaltyAreaWidth, (canvas.height / 2) - penaltyAreaHeight / 2, penaltyAreaWidth, penaltyAreaHeight); // Derecha
+
+            // Dibuja la portería (en el centro)
+            ctx.fillStyle = '#000';
+            ctx.fillRect(canvas.width / 2 - goalWidth / 2, canvas.height - goalHeight, goalWidth, goalHeight); // Portería central
+            ctx.fillRect(canvas.width / 2 - goalWidth / 2, 0, goalWidth, goalHeight); // Portería superior
+
+            // Dibuja las líneas horizontales para las porterías
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2 - goalWidth / 2, canvas.height - goalHeight); // Línea inferior
+            ctx.lineTo(canvas.width / 2 + goalWidth / 2, canvas.height - goalHeight);
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2 - goalWidth / 2, 0); // Línea superior
+            ctx.lineTo(canvas.width / 2 + goalWidth / 2, 0);
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Dibuja el jugador
+            ctx.fillStyle = '#0000ff'; // Jugador azul
+            ctx.fillRect(playerX, playerY, playerWidth, playerHeight);
+
+            // Dibuja la IA
+            ctx.fillStyle = '#ff0'; // Jugador IA amarillo
+            ctx.fillRect(aiX, aiY, playerWidth, playerHeight);
+
+            // Dibuja la bola
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff0000';
+            ctx.fill();
+
+            // Dibuja el marcador
+            ctx.font = '30px Arial';
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`Jugador: ${playerScore}`, 50, 50);
+            ctx.fillText(`IA: ${aiScore}`, canvas.width - 150, 50);
+
+            // Movimiento del jugador
+            movePlayer();
+
+            // Movimiento de la IA
+            moveAI();
+
+            // Movimiento de la bola
+            moveBall();
+        }
+
+        // Bucle principal
+        function gameLoop() {
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Inicia el juego
+        gameLoop();
+    </script>
+</body>
+</html>
+
